@@ -1,34 +1,27 @@
 import http from "node:http";
-import { randomUUID } from "node:crypto";
 import { json } from "../middlewares/json.js";
-const task = [
-  {
-    title: "Task 01",
-    description: "Descrição da Task 01",
-  },
-  {
-    title: "Task 02",
-    description: "Descrição da Task 02",
-  },
-];
+import { routes } from "./routes.js";
 
 const server = http.createServer(async (request, response) => {
   const { method, url } = request;
   await json(request, response);
 
-  if (method === "GET" && url === "/task") {
-    return response.end(JSON.stringify(task));
+  const route = routes.find((route) => {
+    return route.method === method && route.path.test(url);
+  });
+
+  if (route) {
+    const routeParams = request.url.match(route.path);
+
+    const { query, ...params } = routeParams.groups;
+
+    request.params = params;
+    request.query = query ? extractQueryParams(query) : {};
+
+    return route.handler(request, response);
   }
-  if (method === "POST" && url === "/task") {
-    const { title, description } = request.body;
-    const newTask = {
-      id: randomUUID(),
-      title,
-      description,
-    };
-    task.push(newTask);
-    return response.writeHead(201).end();
-  }
+
+  return response.writeHead(404).end();
 });
 
 server.listen(3333);
